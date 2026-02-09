@@ -181,3 +181,70 @@ void NewsClient::fetchNewsInternal(std::string category) {
 
     m_dataReady = true;
 }
+void NewsClient::searchNewsAsync(const std::string& query) {
+    if (m_workerThread.joinable()) {
+        m_workerThread.join();
+    }
+    m_dataReady = false;
+    m_newsList.clear();
+   
+    m_workerThread = std::thread(&NewsClient::searchNewsInternal, this, query);
+}
+
+void NewsClient::searchNewsInternal(std::string query) {
+    
+    std::string apiKey = "c797c00565084a2e832ab96e0c39fd5f";
+    std::string encodedQuery = query;
+    size_t pos = 0;
+    while ((pos = encodedQuery.find(" ", pos)) != std::string::npos) {
+        encodedQuery.replace(pos, 1, "%20");
+        pos += 3;
+    }
+
+    
+    std::string host = "newsapi.org";
+    std::string path = "/v2/everything?q=" + encodedQuery + "&language=en&sortBy=publishedAt&apiKey=" + apiKey;
+
+    httplib::Client cli("https://" + host);
+    cli.enable_server_certificate_verification(false);
+    cli.set_connection_timeout(0, 300000);
+    cli.set_read_timeout(10, 0);
+
+    httplib::Headers headers = { { "User-Agent", "CppNewsApp/1.0" } };
+
+    auto res = cli.Get(path.c_str(), headers);
+
+    if (res && res->status == 200) {
+        try {
+            auto jsonResult = json::parse(res->body);
+            const auto& items = (jsonResult.contains("articles")) ? jsonResult["articles"] : jsonResult;
+
+            if (items.is_array()) {
+                int count = 0;
+                for (const auto& item : items) {
+                    if (count++ >= 20) break;
+
+                    std::string title = SafeGetString(item, "title", "[No Title]");
+                    if (title == "[Removed]") continue;
+
+                    NewsItem news;
+                    news.title = title;
+                    news.content = SafeGetString(item, "description", "");
+                    news.author = SafeGetString(item, "author", "Unknown Source");
+                    news.date = SafeGetString(item, "publishedAt", "");
+                    news.readMoreUrl = SafeGetString(item, "url", "");
+                    news.imageUrl = SafeGetString(item, "urlToImage", "");
+
+                    if (news.date.length() > 10) news.date = news.date.substr(0, 10);
+                    if (isBookmarked(news.readMoreUrl)) news.isSaved = true;
+
+                    m_newsList.push_back(news);
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            std::cout << "[Search Error] JSON: " << e.what() << std::endl;
+        }
+    }
+    m_dataReady = true;
+}

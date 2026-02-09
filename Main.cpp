@@ -25,20 +25,18 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "shell32.lib")
 
-// --- משתנים גלובליים ---
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
 static IDXGISwapChain* g_pSwapChain = nullptr;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 
-// --- הצהרות ---
+
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// --- פונקציית עזר ליצירת טקסטורה מזיכרון (עבור התמונות) ---
 bool CreateTextureFromMemory(const unsigned char* data, int dataSize, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height) {
     int image_width = 0;
     int image_height = 0;
@@ -58,7 +56,7 @@ bool CreateTextureFromMemory(const unsigned char* data, int dataSize, ID3D11Shad
     desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     desc.CPUAccessFlags = 0;
 
-    // --- מבנה נתונים תקין ל-DirectX ---
+   
     D3D11_SUBRESOURCE_DATA subResource;
     subResource.pSysMem = image_data;
     subResource.SysMemPitch = desc.Width * 4;
@@ -85,8 +83,8 @@ bool CreateTextureFromMemory(const unsigned char* data, int dataSize, ID3D11Shad
     return *out_srv != nullptr;
 }
 
-// --- עיצוב ---
-void SetupStyle() {
+
+void SetupStyle() { 
     ImGuiStyle& style = ImGui::GetStyle();
     style.WindowRounding = 0.0f;
     style.ChildRounding = 6.0f;
@@ -132,103 +130,150 @@ int main(int, char**)
     bool isLoading = false;
     bool firstRun = true;
 
-    // --- לולאה ראשית ---
     while (true)
-    {
-        MSG msg;
-        while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
-            ::TranslateMessage(&msg);
-            ::DispatchMessage(&msg);
-            if (msg.message == WM_QUIT) goto Done;
-        }
+{
+    // --- שינוי 1: הגדרת המשתנה לחיפוש (בתחילת הלולאה) ---
+    static char searchBuffer[128] = ""; 
+    // ----------------------------------------------------
 
-        if (firstRun) {
-            isLoading = true;
-            newsClient.fetchNewsAsync(categories[selectedCategory]);
-            firstRun = false;
-        }
+    MSG msg;
+    while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+        ::TranslateMessage(&msg);
+        ::DispatchMessage(&msg);
+        if (msg.message == WM_QUIT) goto Done;
+    }
 
-        // --- טיפול בתמונות שסיימו לרדת ברקע ---
-        LoadedImageData loadedImg;
-        // שואבים את כל התמונות המוכנות מהתור ומייצרים להן טקסטורה ב-Main Thread
-        while (ImageLoader::Get().TryGetNextImage(loadedImg)) {
-            if (loadedImg.success) {
-                // עוברים על הכתבות הנוכחיות ומעדכנים את הטקסטורה אם ה-URL תואם
-                for (auto& news : currentNews) {
-                    if (news.imageUrl == loadedImg.url) {
-                        CreateTextureFromMemory(loadedImg.data.data(), (int)loadedImg.data.size(), &news.texture, &news.width, &news.height);
-                        news.imageLoaded = true;
-                    }
+    if (firstRun) {
+        isLoading = true;
+        newsClient.fetchNewsAsync(categories[selectedCategory]);
+        firstRun = false;
+    }
+
+    // ... (קוד טעינת התמונות נשאר אותו דבר) ...
+    LoadedImageData loadedImg;
+    while (ImageLoader::Get().TryGetNextImage(loadedImg)) {
+        if (loadedImg.success) {
+            for (auto& news : currentNews) {
+                if (news.imageUrl == loadedImg.url) {
+                    CreateTextureFromMemory(loadedImg.data.data(), (int)loadedImg.data.size(), &news.texture, &news.width, &news.height);
+                    news.imageLoaded = true;
                 }
             }
         }
+    }
 
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
+    ImGui_ImplDX11_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
 
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(io.DisplaySize);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("Main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize);
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("Main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize);
 
-        // --- בר עליון ---
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
-        ImGui::BeginChild("TopBar", ImVec2(0, 60), false);
-        ImGui::SetCursorPos(ImVec2(20, 15));
-        ImGui::TextColored(ImVec4(1, 1, 1, 1), "NEWS FEED");
+    // Top Bar
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
+    ImGui::BeginChild("TopBar", ImVec2(0, 60), false);
+    ImGui::SetCursorPos(ImVec2(20, 15));
+    ImGui::TextColored(ImVec4(1, 1, 1, 1), "NEWS FEED");
 
-        ImGui::SameLine(150);
-        ImGui::SetCursorPosY(12);
-        for (int i = 0; i < IM_ARRAYSIZE(categories); i++) {
-            if (i > 0) ImGui::SameLine();
-            if (i == selectedCategory) {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+    ImGui::SameLine(150);
+    ImGui::SetCursorPosY(12);
+    
+    // לולאת הקטגוריות
+    for (int i = 0; i < IM_ARRAYSIZE(categories); i++) {
+        if (i > 0) ImGui::SameLine();
+        
+        // בדיקה: אם קטגוריה נבחרה (וגם לא במצב חיפוש שהוא -1)
+        bool isSelected = (selectedCategory == i);
+
+        if (isSelected) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+        }
+        else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1, 1, 1, 0.1f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1));
+        }
+
+        if (ImGui::Button(categories[i], ImVec2(100, 35))) {
+            selectedCategory = i;
+
+            // ניקוי זיכרון ותמונות (כמו במקור)
+            for (auto& item : currentNews) {
+                if (item.texture) {
+                    item.texture->Release();
+                    item.texture = nullptr;
+                }
+            }
+            currentNews.clear();
+            ImageLoader::Get().ClearCache();
+
+            if (std::string(categories[i]) == "Saved") {
+                currentNews = newsClient.getBookmarks();
+                isLoading = false;
             }
             else {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1, 1, 1, 0.1f));
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1));
+                isLoading = true;
+                newsClient.fetchNewsAsync(categories[i]);
             }
+        }
+        ImGui::PopStyleColor(2);
+    } 
+    // --- כאן מסתיימת הלולאה של הקטגוריות ---
 
-            // --- לוגיקת החלפת קטגוריה ---
-            if (ImGui::Button(categories[i], ImVec2(100, 35))) {
-                selectedCategory = i;
+    // --- שינוי 2: הוספת אזור החיפוש (לפני EndChild) ---
+    
+    // חישוב מיקום בצד ימין
+    float searchWidth = 200.0f;
+    float rightAlign = ImGui::GetWindowWidth() - (searchWidth + 100); // 100 פיקסל רווח לכפתור ולשוליים
+    
+    if (rightAlign > ImGui::GetCursorPosX()) {
+        ImGui::SameLine(rightAlign);
+    } else {
+        ImGui::SameLine();
+    }
 
-                // 1. שחרור זיכרון גרפי של התמונות הישנות (מונע דליפת זיכרון)
-                for (auto& item : currentNews) {
-                    if (item.texture) {
-                        item.texture->Release();
-                        item.texture = nullptr;
-                    }
-                }
-                // 2. ניקוי הוקטור
-                currentNews.clear();
+    // תיבת הטקסט
+    ImGui::PushItemWidth(searchWidth);
+    bool enterPressed = ImGui::InputTextWithHint("##Search", "Search...", searchBuffer, IM_ARRAYSIZE(searchBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::PopItemWidth();
 
-                // 3. ניקוי ה-Cache של הטוען תמונות
-                // זה מאפשר להוריד מחדש תמונות כשחוזרים לקטגוריה שכבר היינו בה
-                ImageLoader::Get().ClearCache();
+    ImGui::SameLine();
 
-                // 4. טעינת התוכן החדש
-                if (std::string(categories[i]) == "Saved") {
-                    currentNews = newsClient.getBookmarks();
-                    isLoading = false;
-                }
-                else {
-                    isLoading = true;
-                    newsClient.fetchNewsAsync(categories[i]);
-                }
+    // כפתור החיפוש (מופעל בלחיצה או ב-Enter)
+    if (ImGui::Button("Search") || enterPressed) {
+        if (strlen(searchBuffer) > 0) {
+            // פעולות ניקוי (חשוב מאוד!)
+            for (auto& item : currentNews) {
+                if (item.texture) { item.texture->Release(); item.texture = nullptr; }
             }
-            ImGui::PopStyleColor(2);
-        }
-        ImGui::EndChild();
-        ImGui::PopStyleColor();
+            currentNews.clear();
+            ImageLoader::Get().ClearCache();
 
-        // --- עדכון נתונים ---
-        if (std::string(categories[selectedCategory]) != "Saved" && newsClient.isDataReady()) {
-            currentNews = newsClient.getNews();
-            isLoading = false;
+            isLoading = true;
+            selectedCategory = -1; // ביטול בחירת קטגוריה (כדי שאף כפתור לא יהיה כחול)
+            
+            // קריאה לפונקציית החיפוש שיצרנו קודם
+            newsClient.searchNewsAsync(searchBuffer);
         }
+    }
+  
+
+    ImGui::EndChild(); 
+    ImGui::PopStyleColor();
+
+    if (newsClient.isDataReady()) {
+        currentNews = newsClient.getNews();
+        isLoading = false;
+    }
+    // אחר כך, נטפל במקרה המיוחד של "Saved" רק אם באמת נבחרה קטגוריה חוקית
+    else if (selectedCategory != -1 &&
+        selectedCategory < IM_ARRAYSIZE(categories) &&
+        std::string(categories[selectedCategory]) == "Saved") {
+        // כאן לא עושים כלום כי הסימניות מנוהלות מקומית
+        // (או שאפשר לרענן אותן אם רוצים: currentNews = newsClient.getBookmarks();)
+    }
 
         ImGui::SetCursorPos(ImVec2(20, 80));
         if (isLoading) {

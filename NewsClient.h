@@ -21,24 +21,19 @@ public:
 
     void fetchNewsAsync(const std::string& category);
     bool isDataReady() const { return m_dataReady; }
-
-    std::vector<NewsItem> getNews();
-
     void toggleBookmark(NewsItem& item);
-
-    // --- התיקון: הוספת & ---
-    std::vector<NewsItem>& getBookmarks();
-
     void saveBookmarks();
     void loadBookmarks();
+    void searchNewsAsync(const std::string& query);
+    std::vector<NewsItem>& getBookmarks();
+    std::vector<NewsItem> getNews();
 
 private:
     void fetchNewsInternal(std::string category);
     bool isBookmarked(const std::string& url);
-
+    void searchNewsInternal(std::string query);
     std::vector<NewsItem> m_newsList;
     std::vector<NewsItem> m_bookmarks;
-
     std::atomic<bool> m_dataReady;
     std::thread m_workerThread;
 };

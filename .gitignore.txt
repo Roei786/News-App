@@ -1,0 +1,18 @@
+# Visual Studio temporary files
+.vs/
+out/
+x64/
+Debug/
+Release/
+*.user
+*.suo
+*.pdb
+*.obj
+*.exe
+*.dll
+*.ipch
+*.aps
+
+
+!libssl-3-x64.dll
+!libcrypto-3-x64.dll

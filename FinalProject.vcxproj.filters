@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Vendor">
+      <UniqueIdentifier>{4e7a1c61-d877-4477-8e6c-66742af9b781}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{87832ccb-f994-4aa4-a4d8-c471bf6fed50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App\Network">
+      <UniqueIdentifier>{a1d10d8d-79e9-4974-bfcf-ac0b2ef79b05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App\Model">
+      <UniqueIdentifier>{49bc89e3-47a3-435d-b2cf-4a04dd4be5c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="App\UI">
+      <UniqueIdentifier>{01ae747f-caae-4e94-85ba-36602b80a312}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Vendor\Json">
+      <UniqueIdentifier>{b1e30e02-835a-4237-a372-79ff8ffdb484}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Vendor\Httplib">
+      <UniqueIdentifier>{bc8ea4c3-3956-4c44-97ea-bfaf88a33858}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Vendor\ImGui">
+      <UniqueIdentifier>{6531b0f6-67bc-4f7a-8d21-ce55caa36b65}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Vendor\ImGui\imgui.cpp">
+      <Filter>Vendor\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\ImGui\imgui_draw.cpp">
+      <Filter>Vendor\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\ImGui\imgui_tables.cpp">
+      <Filter>Vendor\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\ImGui\imgui_widgets.cpp">
+      <Filter>Vendor\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="NewsClient.cpp">
+      <Filter>App\Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\ImGui\imgui_impl_dx11.cpp">
+      <Filter>Vendor\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\ImGui\imgui_impl_win32.cpp">
+      <Filter>Vendor\ImGui</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="json.hpp">
+      <Filter>Vendor\Json</Filter>
+    </ClInclude>
+    <ClInclude Include="httplib.h">
+      <Filter>Vendor\Httplib</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imgui.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imgui_internal.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imstb_rectpack.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imstb_textedit.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imstb_truetype.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imconfig.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="NewsItem.h">
+      <Filter>App\Model</Filter>
+    </ClInclude>
+    <ClInclude Include="NewsClient.h">
+      <Filter>App\Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imgui_impl_dx11.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\ImGui\imgui_impl_win32.h">
+      <Filter>Vendor\ImGui</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-// --- שורות הקסם לפתרון ההתנגשויות (חייבות להיות ראשונות!) ---
-#define WIN32_LEAN_AND_MEAN
-#include <winsock2.h> // חובה לטעון לפני windows.h/d3d11.h
-#include <windows.h>
-// -----------------------------------------------------------
 
-#include <d3d11.h> // כעת בטוח לטעון את DirectX
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h> 
+#include <windows.h>
+
+
+#include <d3d11.h> 
 #include <string>
 #include <vector>
 #include "Json/json.hpp" 
@@ -22,16 +22,16 @@ struct NewsItem {
     std::string readMoreUrl;
     std::string imageUrl;
 
-    // שדות לממשק
+
     bool isSaved = false;
 
-    // שדות גרפיים
+  
     ID3D11ShaderResourceView* texture = nullptr;
     int width = 0;
     int height = 0;
     bool imageLoaded = false;
 
-    // המרה ל-JSON
+  
     json toJson() const {
         return json{
             {"title", title},
@@ -43,7 +43,7 @@ struct NewsItem {
         };
     }
 
-    // טעינה מ-JSON
+
     static NewsItem fromJson(const json& j) {
         NewsItem item;
         item.title = j.value("title", "");

@@ -1,11 +1,11 @@
 ﻿#include "NewsClient.h"
 
-// --- הוספות קריטיות שחסרו וגרמו לשגיאות ---
-#include <algorithm> // חובה עבור std::remove_if
-#include <fstream>   // חובה עבור std::ifstream, std::ofstream
-#include <iostream>  // חובה עבור std::cout
 
-// פונקציית עזר (נשארה זהה)
+#include <algorithm> 
+#include <fstream>   
+#include <iostream>  
+
+
 std::string SafeGetString(const json& j, const std::string& key, const std::string& defaultValue) {
     if (j.contains(key) && !j[key].is_null() && j[key].is_string()) {
         return j[key].get<std::string>();
@@ -14,7 +14,7 @@ std::string SafeGetString(const json& j, const std::string& key, const std::stri
 }
 
 NewsClient::NewsClient() : m_dataReady(false) {
-    // בטעינת התוכנה, נטען את הסימניות מהקובץ
+  
     loadBookmarks();
 }
 
@@ -24,7 +24,7 @@ NewsClient::~NewsClient() {
     }
 }
 
-// --- ניהול סימניות ---
+
 
 void NewsClient::loadBookmarks() {
     std::ifstream file("bookmarks.json");
@@ -35,7 +35,6 @@ void NewsClient::loadBookmarks() {
             m_bookmarks.clear();
             if (j.is_array()) {
                 for (const auto& item : j) {
-                    // הערה: וודא ש-NewsItem.h מעודכן עם הפונקציה fromJson
                     m_bookmarks.push_back(NewsItem::fromJson(item));
                 }
             }
@@ -50,21 +49,20 @@ void NewsClient::loadBookmarks() {
 void NewsClient::saveBookmarks() {
     json j = json::array();
     for (const auto& item : m_bookmarks) {
-        // הערה: וודא ש-NewsItem.h מעודכן עם הפונקציה toJson
         j.push_back(item.toJson());
     }
 
     std::ofstream file("bookmarks.json");
     if (file.is_open()) {
-        file << j.dump(4); // פורמט יפה עם הזחה של 4 רווחים
+        file << j.dump(4); 
         file.close();
     }
 }
 
 void NewsClient::toggleBookmark(NewsItem& item) {
-    // הערה: וודא ש-NewsItem.h מכיל את השדה isSaved
+   
     if (item.isSaved) {
-        // הסרה: אנחנו מחפשים לפי URL ומוחקים
+     
         auto it = std::remove_if(m_bookmarks.begin(), m_bookmarks.end(),
             [&](const NewsItem& saved) { return saved.readMoreUrl == item.readMoreUrl; });
 
@@ -74,11 +72,11 @@ void NewsClient::toggleBookmark(NewsItem& item) {
         item.isSaved = false;
     }
     else {
-        // הוספה
+      
         item.isSaved = true;
         m_bookmarks.push_back(item);
     }
-    // שמירה מיידית לדיסק כדי לא לאבד מידע אם התוכנה קורסת
+  
     saveBookmarks();
 }
 
@@ -97,8 +95,7 @@ bool NewsClient::isBookmarked(const std::string& url) {
 
 std::vector<NewsItem> NewsClient::getNews() {
     m_dataReady = false;
-    // רגע לפני שמחזירים לממשק, נסנכרן מול הסימניות
-    // אם כתבה שהגיעה מהרשת כבר שמורה אצלנו, נסמן אותה
+    
     for (auto& item : m_newsList) {
         if (isBookmarked(item.readMoreUrl)) {
             item.isSaved = true;
@@ -130,7 +127,7 @@ void NewsClient::fetchNewsInternal(std::string category) {
 
     httplib::Client cli("https://" + host);
     cli.enable_server_certificate_verification(false);
-    cli.set_connection_timeout(0, 300000); // Timeout ארוך
+    cli.set_connection_timeout(0, 300000); 
     cli.set_read_timeout(10, 0);
 
     httplib::Headers headers = { { "User-Agent", "CppNewsApp/1.0" } };

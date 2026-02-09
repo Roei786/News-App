@@ -1,7 +1,6 @@
-﻿// --- חובה: שורות אלו חייבות להיות ראשונות כדי למנוע התנגשויות ספריות ---
+﻿
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
-// -----------------------------------------------------------------------
 
 #include "NewsClient.h"
 #include "ImageLoader.h"
@@ -15,9 +14,8 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <shellapi.h> // לפתיחת קישורים בדפדפן
+#include <shellapi.h> 
 
-// הטמעת ספריית התמונות (חייב להופיע פעם אחת בלבד בפרויקט)
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -29,7 +27,8 @@ static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
 static IDXGISwapChain* g_pSwapChain = nullptr;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
-
+ImFont* fontRegular = nullptr;
+ImFont* fontBold = nullptr;
 
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
@@ -118,7 +117,15 @@ int main(int, char**)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     SetupStyle();
-
+    try {
+        fontRegular = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
+        fontBold = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeuib.ttf", 22.0f); // גדול ומודגש יותר
+    }
+    catch (...) {
+     
+    }
+    if (fontRegular == nullptr) fontRegular = io.Fonts->AddFontDefault();
+    if (fontBold == nullptr) fontBold = fontRegular;
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
@@ -132,9 +139,9 @@ int main(int, char**)
 
     while (true)
 {
-    // --- שינוי 1: הגדרת המשתנה לחיפוש (בתחילת הלולאה) ---
+    
     static char searchBuffer[128] = ""; 
-    // ----------------------------------------------------
+  
 
     MSG msg;
     while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
@@ -149,7 +156,6 @@ int main(int, char**)
         firstRun = false;
     }
 
-    // ... (קוד טעינת התמונות נשאר אותו דבר) ...
     LoadedImageData loadedImg;
     while (ImageLoader::Get().TryGetNextImage(loadedImg)) {
         if (loadedImg.success) {
@@ -180,11 +186,9 @@ int main(int, char**)
     ImGui::SameLine(150);
     ImGui::SetCursorPosY(12);
     
-    // לולאת הקטגוריות
+    // Categories
     for (int i = 0; i < IM_ARRAYSIZE(categories); i++) {
         if (i > 0) ImGui::SameLine();
-        
-        // בדיקה: אם קטגוריה נבחרה (וגם לא במצב חיפוש שהוא -1)
         bool isSelected = (selectedCategory == i);
 
         if (isSelected) {
@@ -199,7 +203,6 @@ int main(int, char**)
         if (ImGui::Button(categories[i], ImVec2(100, 35))) {
             selectedCategory = i;
 
-            // ניקוי זיכרון ותמונות (כמו במקור)
             for (auto& item : currentNews) {
                 if (item.texture) {
                     item.texture->Release();
@@ -220,13 +223,9 @@ int main(int, char**)
         }
         ImGui::PopStyleColor(2);
     } 
-    // --- כאן מסתיימת הלולאה של הקטגוריות ---
-
-    // --- שינוי 2: הוספת אזור החיפוש (לפני EndChild) ---
     
-    // חישוב מיקום בצד ימין
     float searchWidth = 200.0f;
-    float rightAlign = ImGui::GetWindowWidth() - (searchWidth + 100); // 100 פיקסל רווח לכפתור ולשוליים
+    float rightAlign = ImGui::GetWindowWidth() - (searchWidth + 100); 
     
     if (rightAlign > ImGui::GetCursorPosX()) {
         ImGui::SameLine(rightAlign);
@@ -234,17 +233,15 @@ int main(int, char**)
         ImGui::SameLine();
     }
 
-    // תיבת הטקסט
+    // Text Input
     ImGui::PushItemWidth(searchWidth);
     bool enterPressed = ImGui::InputTextWithHint("##Search", "Search...", searchBuffer, IM_ARRAYSIZE(searchBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::PopItemWidth();
 
     ImGui::SameLine();
 
-    // כפתור החיפוש (מופעל בלחיצה או ב-Enter)
     if (ImGui::Button("Search") || enterPressed) {
         if (strlen(searchBuffer) > 0) {
-            // פעולות ניקוי (חשוב מאוד!)
             for (auto& item : currentNews) {
                 if (item.texture) { item.texture->Release(); item.texture = nullptr; }
             }
@@ -252,9 +249,7 @@ int main(int, char**)
             ImageLoader::Get().ClearCache();
 
             isLoading = true;
-            selectedCategory = -1; // ביטול בחירת קטגוריה (כדי שאף כפתור לא יהיה כחול)
-            
-            // קריאה לפונקציית החיפוש שיצרנו קודם
+            selectedCategory = -1;
             newsClient.searchNewsAsync(searchBuffer);
         }
     }
@@ -267,12 +262,11 @@ int main(int, char**)
         currentNews = newsClient.getNews();
         isLoading = false;
     }
-    // אחר כך, נטפל במקרה המיוחד של "Saved" רק אם באמת נבחרה קטגוריה חוקית
+   
     else if (selectedCategory != -1 &&
         selectedCategory < IM_ARRAYSIZE(categories) &&
         std::string(categories[selectedCategory]) == "Saved") {
-        // כאן לא עושים כלום כי הסימניות מנוהלות מקומית
-        // (או שאפשר לרענן אותן אם רוצים: currentNews = newsClient.getBookmarks();)
+      
     }
 
         ImGui::SetCursorPos(ImVec2(20, 80));
@@ -283,7 +277,7 @@ int main(int, char**)
             ImGui::Text(selectedCategory == 5 ? "No saved bookmarks." : "No news found.");
         }
         else {
-            // חישוב גריד
+            
             float availWidth = ImGui::GetContentRegionAvail().x;
             float cardWidth = 300.0f;
             float spacing = 20.0f;
@@ -294,62 +288,72 @@ int main(int, char**)
 
             for (int i = 0; i < currentNews.size(); i++) {
                 ImGui::PushID(i);
+                ImGui::BeginChild("Card", ImVec2(cardWidth, 350), true);
 
-                // כרטיס
-                ImGui::BeginChild("Card", ImVec2(cardWidth, 270), true);
-
-                // --- תמונה ---
                 if (!currentNews[i].imageLoaded && !currentNews[i].imageUrl.empty()) {
-                    // שליחת בקשה ל-Thread להוריד את התמונה
                     ImageLoader::Get().LoadImageAsync(currentNews[i].imageUrl);
                 }
 
                 if (currentNews[i].texture) {
-                    // חישוב יחס תמונה כדי לא למתוח
                     float aspectRatio = (float)currentNews[i].width / (float)currentNews[i].height;
-                    float imgHeight = 150.0f;
+                    float imgHeight = 160.0f; 
                     float imgWidth = imgHeight * aspectRatio;
                     if (imgWidth > cardWidth) {
                         imgWidth = cardWidth;
                         imgHeight = imgWidth / aspectRatio;
                     }
+                   
                     float offsetX = (cardWidth - imgWidth) * 0.5f;
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+                    if (offsetX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+
                     ImGui::Image((void*)currentNews[i].texture, ImVec2(imgWidth, imgHeight));
                 }
                 else {
-                    // Placeholder
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
-                    ImGui::Button("Loading Image...", ImVec2(cardWidth, 150));
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+                    ImGui::Button(" ", ImVec2(cardWidth, 160)); 
                     ImGui::PopStyleColor();
                 }
 
-                // כותרת ותאריך
                 ImGui::Spacing();
+
+                ImGui::PushFont(fontBold); 
                 std::string title = currentNews[i].title;
-                if (title.length() > 50) title = title.substr(0, 47) + "...";
-                ImGui::TextColored(ImVec4(0, 0, 0.5f, 1), "%s", title.c_str());
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1), "%s", currentNews[i].date.c_str());
+
+                if (title.length() > 60) title = title.substr(0, 57) + "...";
+
+                ImGui::TextColored(ImVec4(0.1f, 0.1f, 0.1f, 1.0f), "%s", title.c_str());
+                ImGui::PopFont(); 
+
+                ImGui::PushFont(fontRegular);
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", currentNews[i].date.c_str());
+                ImGui::Spacing();
+                std::string content = currentNews[i].content;
+                if (content.length() > 90) content = content.substr(0, 87) + "...";
+                ImGui::TextColored(ImVec4(0.3f, 0.3f, 0.3f, 1.0f), "%s", content.c_str());
+
+                ImGui::PopFont(); 
+
+                float currentY = ImGui::GetCursorPosY();
+                if (currentY < 310) ImGui::SetCursorPosY(310);
 
                 ImGui::Separator();
 
-                // כפתורים
-                if (ImGui::Button("Read More", ImVec2(120, 0))) {
+                if (ImGui::Button("READ MORE", ImVec2(120, 0))) {
                     ShellExecuteA(NULL, "open", currentNews[i].readMoreUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
                 }
 
                 ImGui::SameLine();
-
                 bool isSaved = currentNews[i].isSaved;
                 if (isSaved) {
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f));
-                    if (ImGui::Button("Saved", ImVec2(-1, 0))) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+                    if (ImGui::Button("SAVED", ImVec2(-1, 0))) {
                         newsClient.toggleBookmark(currentNews[i]);
                         if (std::string(categories[selectedCategory]) == "Saved") {
-                            currentNews = newsClient.getBookmarks(); // רענון מיידי
+                            currentNews = newsClient.getBookmarks();
                         }
                     }
-                    ImGui::PopStyleColor();
+                    ImGui::PopStyleColor(2);
                 }
                 else {
                     if (ImGui::Button("Bookmark", ImVec2(-1, 0))) {
@@ -357,10 +361,9 @@ int main(int, char**)
                     }
                 }
 
-                ImGui::EndChild(); // סיום כרטיס
+                ImGui::EndChild();
                 ImGui::PopID();
 
-                // --- סידור הגריד (מונע קריסה) ---
                 if ((i + 1) % columns != 0) {
                     ImGui::SameLine(0, spacing);
                 }
@@ -392,7 +395,6 @@ Done:
     return 0;
 }
 
-// --- פונקציות טכניות ---
 bool CreateDeviceD3D(HWND hWnd) {
     DXGI_SWAP_CHAIN_DESC sd;
     ZeroMemory(&sd, sizeof(sd));

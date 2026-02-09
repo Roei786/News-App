@@ -1,17 +1,29 @@
-﻿#include "NewsClient.h" 
+﻿// --- חובה: שורות אלו חייבות להיות ראשונות כדי למנוע התנגשויות ספריות ---
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+// -----------------------------------------------------------------------
+
+#include "NewsClient.h"
+#include "ImageLoader.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
+
+#include <windows.h>
 #include <d3d11.h>
 #include <tchar.h>
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <shellapi.h> // נדרש עבור ShellExecute
+#include <shellapi.h> // לפתיחת קישורים בדפדפן
+
+// הטמעת ספריית התמונות (חייב להופיע פעם אחת בלבד בפרויקט)
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
-#pragma comment(lib, "shell32.lib") // נדרש עבור פתיחת קישורים בדפדפן
+#pragma comment(lib, "shell32.lib")
 
 // --- משתנים גלובליים ---
 static ID3D11Device* g_pd3dDevice = nullptr;
@@ -25,6 +37,53 @@ void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+// --- פונקציית עזר ליצירת טקסטורה מזיכרון (עבור התמונות) ---
+bool CreateTextureFromMemory(const unsigned char* data, int dataSize, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height) {
+    int image_width = 0;
+    int image_height = 0;
+    int channels = 0;
+    unsigned char* image_data = stbi_load_from_memory(data, dataSize, &image_width, &image_height, &channels, 4);
+    if (image_data == NULL) return false;
+
+    D3D11_TEXTURE2D_DESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.Width = image_width;
+    desc.Height = image_height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+
+    // --- מבנה נתונים תקין ל-DirectX ---
+    D3D11_SUBRESOURCE_DATA subResource;
+    subResource.pSysMem = image_data;
+    subResource.SysMemPitch = desc.Width * 4;
+    subResource.SysMemSlicePitch = 0;
+
+    ID3D11Texture2D* pTexture = NULL;
+    g_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
+
+    if (pTexture != NULL) {
+        D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+        ZeroMemory(&srvDesc, sizeof(srvDesc));
+        srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = desc.MipLevels;
+        srvDesc.Texture2D.MostDetailedMip = 0;
+        g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, out_srv);
+        pTexture->Release();
+    }
+
+    stbi_image_free(image_data);
+    *out_width = image_width;
+    *out_height = image_height;
+
+    return *out_srv != nullptr;
+}
 
 // --- עיצוב ---
 void SetupStyle() {
@@ -67,8 +126,6 @@ int main(int, char**)
 
     NewsClient newsClient;
     static int selectedCategory = 0;
-
-    // 1. עדכון רשימת הקטגוריות - הוספנו את Saved בסוף
     const char* categories[] = { "General", "Technology", "Business", "Sports", "Science", "Saved" };
 
     std::vector<NewsItem> currentNews;
@@ -89,6 +146,21 @@ int main(int, char**)
             isLoading = true;
             newsClient.fetchNewsAsync(categories[selectedCategory]);
             firstRun = false;
+        }
+
+        // --- טיפול בתמונות שסיימו לרדת ברקע ---
+        LoadedImageData loadedImg;
+        // שואבים את כל התמונות המוכנות מהתור ומייצרים להן טקסטורה ב-Main Thread
+        while (ImageLoader::Get().TryGetNextImage(loadedImg)) {
+            if (loadedImg.success) {
+                // עוברים על הכתבות הנוכחיות ומעדכנים את הטקסטורה אם ה-URL תואם
+                for (auto& news : currentNews) {
+                    if (news.imageUrl == loadedImg.url) {
+                        CreateTextureFromMemory(loadedImg.data.data(), (int)loadedImg.data.size(), &news.texture, &news.width, &news.height);
+                        news.imageLoaded = true;
+                    }
+                }
+            }
         }
 
         ImGui_ImplDX11_NewFrame();
@@ -119,19 +191,31 @@ int main(int, char**)
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1));
             }
 
+            // --- לוגיקת החלפת קטגוריה ---
             if (ImGui::Button(categories[i], ImVec2(100, 35))) {
                 selectedCategory = i;
 
-                // 2. לוגיקה לטיפול בלחיצה על קטגוריות
+                // 1. שחרור זיכרון גרפי של התמונות הישנות (מונע דליפת זיכרון)
+                for (auto& item : currentNews) {
+                    if (item.texture) {
+                        item.texture->Release();
+                        item.texture = nullptr;
+                    }
+                }
+                // 2. ניקוי הוקטור
+                currentNews.clear();
+
+                // 3. ניקוי ה-Cache של הטוען תמונות
+                // זה מאפשר להוריד מחדש תמונות כשחוזרים לקטגוריה שכבר היינו בה
+                ImageLoader::Get().ClearCache();
+
+                // 4. טעינת התוכן החדש
                 if (std::string(categories[i]) == "Saved") {
-                    // אם נבחר Saved, טוענים מהזיכרון המקומי
                     currentNews = newsClient.getBookmarks();
                     isLoading = false;
                 }
                 else {
-                    // אחרת, טוענים מהאינטרנט
                     isLoading = true;
-                    currentNews.clear();
                     newsClient.fetchNewsAsync(categories[i]);
                 }
             }
@@ -140,8 +224,7 @@ int main(int, char**)
         ImGui::EndChild();
         ImGui::PopStyleColor();
 
-        // --- תוכן ---
-        // בדיקה רק אם אנחנו לא במצב Saved, כי ב-Saved המידע מגיע מיידית
+        // --- עדכון נתונים ---
         if (std::string(categories[selectedCategory]) != "Saved" && newsClient.isDataReady()) {
             currentNews = newsClient.getNews();
             isLoading = false;
@@ -152,10 +235,7 @@ int main(int, char**)
             ImGui::Text("Loading news...");
         }
         else if (currentNews.empty()) {
-            if (std::string(categories[selectedCategory]) == "Saved")
-                ImGui::Text("No bookmarks saved yet.");
-            else
-                ImGui::Text("No news found. Check your API Key.");
+            ImGui::Text(selectedCategory == 5 ? "No saved bookmarks." : "No news found.");
         }
         else {
             // חישוב גריד
@@ -168,48 +248,63 @@ int main(int, char**)
             ImGui::BeginChild("Grid", ImVec2(0, 0), false);
 
             for (int i = 0; i < currentNews.size(); i++) {
-                ImGui::PushID(i); // חובה!
+                ImGui::PushID(i);
 
                 // כרטיס
-                ImGui::BeginChild("Card", ImVec2(cardWidth, 220), true);
+                ImGui::BeginChild("Card", ImVec2(cardWidth, 270), true);
 
-                // תמונה (placeholder)
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
-                ImGui::Button("##img", ImVec2(-1, 80));
-                ImGui::PopStyleColor();
+                // --- תמונה ---
+                if (!currentNews[i].imageLoaded && !currentNews[i].imageUrl.empty()) {
+                    // שליחת בקשה ל-Thread להוריד את התמונה
+                    ImageLoader::Get().LoadImageAsync(currentNews[i].imageUrl);
+                }
 
+                if (currentNews[i].texture) {
+                    // חישוב יחס תמונה כדי לא למתוח
+                    float aspectRatio = (float)currentNews[i].width / (float)currentNews[i].height;
+                    float imgHeight = 150.0f;
+                    float imgWidth = imgHeight * aspectRatio;
+                    if (imgWidth > cardWidth) {
+                        imgWidth = cardWidth;
+                        imgHeight = imgWidth / aspectRatio;
+                    }
+                    float offsetX = (cardWidth - imgWidth) * 0.5f;
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+                    ImGui::Image((void*)currentNews[i].texture, ImVec2(imgWidth, imgHeight));
+                }
+                else {
+                    // Placeholder
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
+                    ImGui::Button("Loading Image...", ImVec2(cardWidth, 150));
+                    ImGui::PopStyleColor();
+                }
+
+                // כותרת ותאריך
                 ImGui::Spacing();
                 std::string title = currentNews[i].title;
                 if (title.length() > 50) title = title.substr(0, 47) + "...";
                 ImGui::TextColored(ImVec4(0, 0, 0.5f, 1), "%s", title.c_str());
-
                 ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1), "%s", currentNews[i].date.c_str());
+
                 ImGui::Separator();
 
-                ImGui::BeginChild("Content", ImVec2(0, 40));
-                ImGui::TextWrapped("%s", currentNews[i].content.c_str());
-                ImGui::EndChild();
-
-                // 3. כפתור Read More - פותח דפדפן
+                // כפתורים
                 if (ImGui::Button("Read More", ImVec2(120, 0))) {
                     ShellExecuteA(NULL, "open", currentNews[i].readMoreUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
                 }
 
                 ImGui::SameLine();
 
-                // 4. כפתור Bookmark/Saved - החלק החדש
                 bool isSaved = currentNews[i].isSaved;
                 if (isSaved) {
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f)); // ירוק לסימון שמור
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f));
                     if (ImGui::Button("Saved", ImVec2(-1, 0))) {
                         newsClient.toggleBookmark(currentNews[i]);
-                        // אם אנחנו בתוך מסך "Saved", נרצה לעדכן את הרשימה מיד כדי שהכתבה תיעלם
                         if (std::string(categories[selectedCategory]) == "Saved") {
-                            currentNews = newsClient.getBookmarks();
+                            currentNews = newsClient.getBookmarks(); // רענון מיידי
                         }
                     }
-                    ImGui::PopStyleColor(2);
+                    ImGui::PopStyleColor();
                 }
                 else {
                     if (ImGui::Button("Bookmark", ImVec2(-1, 0))) {
@@ -220,8 +315,8 @@ int main(int, char**)
                 ImGui::EndChild(); // סיום כרטיס
                 ImGui::PopID();
 
+                // --- סידור הגריד (מונע קריסה) ---
                 if ((i + 1) % columns != 0) {
-                    ImGui::SameLine();
                     ImGui::SameLine(0, spacing);
                 }
                 else {

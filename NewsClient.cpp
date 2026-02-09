@@ -1,5 +1,10 @@
 ﻿#include "NewsClient.h"
 
+// --- הוספות קריטיות שחסרו וגרמו לשגיאות ---
+#include <algorithm> // חובה עבור std::remove_if
+#include <fstream>   // חובה עבור std::ifstream, std::ofstream
+#include <iostream>  // חובה עבור std::cout
+
 // פונקציית עזר (נשארה זהה)
 std::string SafeGetString(const json& j, const std::string& key, const std::string& defaultValue) {
     if (j.contains(key) && !j[key].is_null() && j[key].is_string()) {
@@ -30,6 +35,7 @@ void NewsClient::loadBookmarks() {
             m_bookmarks.clear();
             if (j.is_array()) {
                 for (const auto& item : j) {
+                    // הערה: וודא ש-NewsItem.h מעודכן עם הפונקציה fromJson
                     m_bookmarks.push_back(NewsItem::fromJson(item));
                 }
             }
@@ -44,6 +50,7 @@ void NewsClient::loadBookmarks() {
 void NewsClient::saveBookmarks() {
     json j = json::array();
     for (const auto& item : m_bookmarks) {
+        // הערה: וודא ש-NewsItem.h מעודכן עם הפונקציה toJson
         j.push_back(item.toJson());
     }
 
@@ -55,6 +62,7 @@ void NewsClient::saveBookmarks() {
 }
 
 void NewsClient::toggleBookmark(NewsItem& item) {
+    // הערה: וודא ש-NewsItem.h מכיל את השדה isSaved
     if (item.isSaved) {
         // הסרה: אנחנו מחפשים לפי URL ומוחקים
         auto it = std::remove_if(m_bookmarks.begin(), m_bookmarks.end(),
@@ -74,7 +82,7 @@ void NewsClient::toggleBookmark(NewsItem& item) {
     saveBookmarks();
 }
 
-std::vector<NewsItem> NewsClient::getBookmarks() {
+std::vector<NewsItem>& NewsClient::getBookmarks() {
     return m_bookmarks;
 }
 
@@ -109,7 +117,7 @@ void NewsClient::fetchNewsAsync(const std::string& category) {
 }
 
 void NewsClient::fetchNewsInternal(std::string category) {
-    std::string apiKey = "c797c00565084a2e832ab96e0c39fd5f"; // הכנס את המפתח שלך כאן
+    std::string apiKey = "c797c00565084a2e832ab96e0c39fd5f";
 
     std::string host = "newsapi.org";
     std::string path = "/v2/top-headlines?country=us&category=" + category + "&apiKey=" + apiKey;

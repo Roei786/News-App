@@ -142,9 +142,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="httplib.h" />
+    <ClInclude Include="ImageLoader.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="NewsClient.h" />
     <ClInclude Include="NewsItem.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="Vendor\ImGui\imconfig.h" />
     <ClInclude Include="Vendor\ImGui\imgui.h" />
     <ClInclude Include="Vendor\ImGui\imgui_impl_dx11.h" />

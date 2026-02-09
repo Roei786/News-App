@@ -1,7 +1,15 @@
 ﻿#pragma once
+
+// --- שורות הקסם לפתרון ההתנגשויות (חייבות להיות ראשונות!) ---
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h> // חובה לטעון לפני windows.h/d3d11.h
+#include <windows.h>
+// -----------------------------------------------------------
+
+#include <d3d11.h> // כעת בטוח לטעון את DirectX
 #include <string>
 #include <vector>
-#include "Json/json.hpp" // וודא שהספרייה מקושרת
+#include "Json/json.hpp" 
 
 using json = nlohmann::json;
 
@@ -14,10 +22,16 @@ struct NewsItem {
     std::string readMoreUrl;
     std::string imageUrl;
 
-    // שדה חדש לסימון בממשק
+    // שדות לממשק
     bool isSaved = false;
 
-    // המרה מאובייקט ל-JSON (לשמירה לקובץ)
+    // שדות גרפיים
+    ID3D11ShaderResourceView* texture = nullptr;
+    int width = 0;
+    int height = 0;
+    bool imageLoaded = false;
+
+    // המרה ל-JSON
     json toJson() const {
         return json{
             {"title", title},
@@ -29,7 +43,7 @@ struct NewsItem {
         };
     }
 
-    // המרה מ-JSON לאובייקט (לטעינה מהקובץ)
+    // טעינה מ-JSON
     static NewsItem fromJson(const json& j) {
         NewsItem item;
         item.title = j.value("title", "");
@@ -38,7 +52,7 @@ struct NewsItem {
         item.date = j.value("date", "");
         item.readMoreUrl = j.value("url", "");
         item.imageUrl = j.value("urlToImage", "");
-        item.isSaved = true; // אם טענו אותה מהדיסק, היא שמורה
+        item.isSaved = true;
         return item;
     }
 };

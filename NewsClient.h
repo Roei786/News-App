@@ -24,18 +24,20 @@ public:
 
     std::vector<NewsItem> getNews();
 
-    // --- פונקציות חדשות לניהול סימניות ---
-    void toggleBookmark(NewsItem& item);     // הוספה/הסרה
-    std::vector<NewsItem> getBookmarks();    // החזרת רשימת השמורים
-    void saveBookmarks();                    // שמירה לקובץ
-    void loadBookmarks();                    // טעינה מקובץ
+    void toggleBookmark(NewsItem& item);
+
+    // --- התיקון: הוספת & ---
+    std::vector<NewsItem>& getBookmarks();
+
+    void saveBookmarks();
+    void loadBookmarks();
 
 private:
     void fetchNewsInternal(std::string category);
-    bool isBookmarked(const std::string& url); // בדיקה פנימית
+    bool isBookmarked(const std::string& url);
 
     std::vector<NewsItem> m_newsList;
-    std::vector<NewsItem> m_bookmarks; // כאן נשמור את הסימניות
+    std::vector<NewsItem> m_bookmarks;
 
     std::atomic<bool> m_dataReady;
     std::thread m_workerThread;

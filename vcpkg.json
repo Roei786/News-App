@@ -1,0 +1,8 @@
+{
+  "name": "NewsApp",
+  "version-string": "1.0.0",
+  "dependencies": [
+    "openssl",
+    "cpp-httplib"
+  ]
+}

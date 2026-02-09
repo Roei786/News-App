@@ -7,9 +7,11 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <shellapi.h> // נדרש עבור ShellExecute
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(lib, "shell32.lib") // נדרש עבור פתיחת קישורים בדפדפן
 
 // --- משתנים גלובליים ---
 static ID3D11Device* g_pd3dDevice = nullptr;
@@ -65,7 +67,9 @@ int main(int, char**)
 
     NewsClient newsClient;
     static int selectedCategory = 0;
-    const char* categories[] = { "General", "Technology", "Business", "Sports", "Science" };
+
+    // 1. עדכון רשימת הקטגוריות - הוספנו את Saved בסוף
+    const char* categories[] = { "General", "Technology", "Business", "Sports", "Science", "Saved" };
 
     std::vector<NewsItem> currentNews;
     bool isLoading = false;
@@ -114,11 +118,22 @@ int main(int, char**)
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1, 1, 1, 0.1f));
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1));
             }
+
             if (ImGui::Button(categories[i], ImVec2(100, 35))) {
                 selectedCategory = i;
-                isLoading = true;
-                currentNews.clear();
-                newsClient.fetchNewsAsync(categories[i]);
+
+                // 2. לוגיקה לטיפול בלחיצה על קטגוריות
+                if (std::string(categories[i]) == "Saved") {
+                    // אם נבחר Saved, טוענים מהזיכרון המקומי
+                    currentNews = newsClient.getBookmarks();
+                    isLoading = false;
+                }
+                else {
+                    // אחרת, טוענים מהאינטרנט
+                    isLoading = true;
+                    currentNews.clear();
+                    newsClient.fetchNewsAsync(categories[i]);
+                }
             }
             ImGui::PopStyleColor(2);
         }
@@ -126,7 +141,8 @@ int main(int, char**)
         ImGui::PopStyleColor();
 
         // --- תוכן ---
-        if (newsClient.isDataReady()) {
+        // בדיקה רק אם אנחנו לא במצב Saved, כי ב-Saved המידע מגיע מיידית
+        if (std::string(categories[selectedCategory]) != "Saved" && newsClient.isDataReady()) {
             currentNews = newsClient.getNews();
             isLoading = false;
         }
@@ -136,7 +152,10 @@ int main(int, char**)
             ImGui::Text("Loading news...");
         }
         else if (currentNews.empty()) {
-            ImGui::Text("No news found. Check your API Key.");
+            if (std::string(categories[selectedCategory]) == "Saved")
+                ImGui::Text("No bookmarks saved yet.");
+            else
+                ImGui::Text("No news found. Check your API Key.");
         }
         else {
             // חישוב גריד
@@ -154,7 +173,7 @@ int main(int, char**)
                 // כרטיס
                 ImGui::BeginChild("Card", ImVec2(cardWidth, 220), true);
 
-                // התיקון הקריטי: שם הכפתור הוא "##img" (נסתר) במקום ריק
+                // תמונה (placeholder)
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
                 ImGui::Button("##img", ImVec2(-1, 80));
                 ImGui::PopStyleColor();
@@ -171,8 +190,31 @@ int main(int, char**)
                 ImGui::TextWrapped("%s", currentNews[i].content.c_str());
                 ImGui::EndChild();
 
-                if (ImGui::Button("Read More", ImVec2(-1, 0))) {
-                    // כאן ייפתח הקישור
+                // 3. כפתור Read More - פותח דפדפן
+                if (ImGui::Button("Read More", ImVec2(120, 0))) {
+                    ShellExecuteA(NULL, "open", currentNews[i].readMoreUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                }
+
+                ImGui::SameLine();
+
+                // 4. כפתור Bookmark/Saved - החלק החדש
+                bool isSaved = currentNews[i].isSaved;
+                if (isSaved) {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f)); // ירוק לסימון שמור
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                    if (ImGui::Button("Saved", ImVec2(-1, 0))) {
+                        newsClient.toggleBookmark(currentNews[i]);
+                        // אם אנחנו בתוך מסך "Saved", נרצה לעדכן את הרשימה מיד כדי שהכתבה תיעלם
+                        if (std::string(categories[selectedCategory]) == "Saved") {
+                            currentNews = newsClient.getBookmarks();
+                        }
+                    }
+                    ImGui::PopStyleColor(2);
+                }
+                else {
+                    if (ImGui::Button("Bookmark", ImVec2(-1, 0))) {
+                        newsClient.toggleBookmark(currentNews[i]);
+                    }
                 }
 
                 ImGui::EndChild(); // סיום כרטיס
@@ -180,7 +222,7 @@ int main(int, char**)
 
                 if ((i + 1) % columns != 0) {
                     ImGui::SameLine();
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + spacing);
+                    ImGui::SameLine(0, spacing);
                 }
                 else {
                     ImGui::Dummy(ImVec2(0, spacing));

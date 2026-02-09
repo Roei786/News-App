@@ -1,15 +1,44 @@
-#pragma once
+ο»Ώ#pragma once
 #include <string>
 #include <vector>
+#include "Json/json.hpp" // Χ•Χ•Χ“Χ Χ©Χ”Χ΅Χ¤Χ¨Χ™Χ™Χ” ΧΧ§Χ•Χ©Χ¨Χª
 
-// δξαπδ δζδ ιιφβ λϊαδ ΰηϊ αεγγϊ
-// ΰπηπε ξωϊξωιν α-std::string λτι ωπγψω αςαεγδ ςν STL
+using json = nlohmann::json;
+
 struct NewsItem {
-    std::string title;       // λεϊψϊ
-    std::string author;      // ων δλϊα
-    std::string content;     // ϊελο δλϊαδ
-    std::string date;        // ϊΰψικ
-    std::string time;        // ωςδ
-    std::string readMoreUrl; // χιωεψ μλϊαδ δξμΰδ
-    std::string imageUrl;    // χιωεψ μϊξεπδ
+    std::string title;
+    std::string author;
+    std::string content;
+    std::string date;
+    std::string time;
+    std::string readMoreUrl;
+    std::string imageUrl;
+
+    // Χ©Χ“Χ” Χ—Χ“Χ© ΧΧ΅Χ™ΧΧ•Χ Χ‘ΧΧΧ©Χ§
+    bool isSaved = false;
+
+    // Χ”ΧΧ¨Χ” ΧΧΧ•Χ‘Χ™Χ™Χ§Χ Χ-JSON (ΧΧ©ΧΧ™Χ¨Χ” ΧΧ§Χ•Χ‘Χ¥)
+    json toJson() const {
+        return json{
+            {"title", title},
+            {"author", author},
+            {"content", content},
+            {"date", date},
+            {"url", readMoreUrl},
+            {"urlToImage", imageUrl}
+        };
+    }
+
+    // Χ”ΧΧ¨Χ” Χ-JSON ΧΧΧ•Χ‘Χ™Χ™Χ§Χ (ΧΧΧΆΧ™Χ Χ” ΧΧ”Χ§Χ•Χ‘Χ¥)
+    static NewsItem fromJson(const json& j) {
+        NewsItem item;
+        item.title = j.value("title", "");
+        item.author = j.value("author", "");
+        item.content = j.value("content", "");
+        item.date = j.value("date", "");
+        item.readMoreUrl = j.value("url", "");
+        item.imageUrl = j.value("urlToImage", "");
+        item.isSaved = true; // ΧΧ ΧΧΆΧ Χ• ΧΧ•ΧªΧ” ΧΧ”Χ“Χ™Χ΅Χ§, Χ”Χ™Χ Χ©ΧΧ•Χ¨Χ”
+        return item;
+    }
 };
